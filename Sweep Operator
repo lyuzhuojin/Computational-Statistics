@@ -1,0 +1,128 @@
+#a)
+x <- c(-2.0,-1.5,-1.0,-0.5,0.0,0.5,1.0,1.5,2.0,2.5,3.0)
+y <- c(-5.22,-2.21,0.11,0.94,0.71,-0.17,0.56,-0.94,-0.79,-1.15,-0.25)
+
+X <- matrix(c(rep(1,11),x,x^2,x^3),ncol = 4)
+XTX <- crossprod(X)
+XTy <- crossprod(X,y)
+
+T <- rbind(cbind(XTX,XTy),cbind(t(XTy),crossprod(y)))
+
+#b)
+
+SWEEP <- function(A, k) {
+  if(qr(A)$rank != length(diag(A))){
+    print("The first argument must be a strictly full rank matrix.")
+  }
+  else if(k%%1 != 0){
+    print("The second argument must be an integer.")
+  }
+  else{
+    for (i in 1:k) {
+      D <- A[i, i]
+      A[i, ] <- A[i, ] / D
+      for (j in 1:nrow(A)) {
+        if (j != i) {
+          B <- A[j, i]
+          A[j,] <- A[j,] - B * A[i,]
+          A[j, i] <- -B / D
+        }
+        A[i, i] <- 1 / D
+      }
+    }
+    A
+  }
+}
+
+SWEEP(T,4)
+
+
+
+#
+SWEEP <- function(A, k) {
+  if (qr(A)$rank == length(diag(A))& k <= nrow(A)) {
+      D <- A[k, k]
+      A[k, ] <- A[k, ] / D
+      for (j in 1:nrow(A)) {
+        if (j != k) {
+          B <- A[j, k]
+          A[j,] <- A[j,] - B * A[k,]
+          A[j, k] <- -B / D
+        }
+        A[k, k] <- 1 / D
+      }
+    A
+  }
+  else if(qr(A)$rank != length(diag(A))){
+    print("The first argument should be a full rank matrix.")
+  }
+  else{
+    print("Please point out the kth row of the specific matrix where you'd like to sweep.")
+  }
+}
+
+T
+for(i in 1:4){
+  print(SWEEP(SWEEP(T,i),i))
+}
+
+
+
+#c)
+plot(x,y)
+a <- seq(-2,3,length.out = 100)
+p <- ncol(T) - 1
+for(k in 1:p){
+  T <- SWEEP(T,k)
+  lines(a, horner(T[1:k, p+1])(a), lty = k)
+  print(c(k, T[p + 1, p + 1]))
+}
+
+#d)
+L <- matrix(c(rep(1,2),-1,rep(1,3),-1,1), ncol = 4)
+L
+
+T_new <- rbind(cbind(XTX,t(L),XTy),cbind(L,matrix(rep(0,6), ncol = 3)),c(t(XTy),rep(0,2),crossprod(y)))
+T_new
+
+SWEEP_all <- function(A, k) {
+  if(qr(A)$rank != length(diag(A))){
+    print("The first argument must be a strictly full rank matrix.")
+  }
+  else if(k%%1 != 0){
+    print("The second argument must be an integer.")
+  }
+  else{
+    for (i in 1:k) {
+      D <- A[i, i]
+      A[i, ] <- A[i, ] / D
+      for (j in 1:nrow(A)) {
+        if (j != i) {
+          B <- A[j, i]
+          A[j,] <- A[j,] - B * A[i,]
+          A[j, i] <- -B / D
+        }
+        A[i, i] <- 1 / D
+      }
+    }
+    A
+  }
+}
+
+SWEEP_all(T,4)
+
+beta_hat <- SWEEP_all(T_new,6)[1:4,7]
+L%*%beta_hat
+
+par(col = "black")
+plot(x,y)
+a <- seq(-2,3,length.out = 100)
+p <- ncol(T) - 1
+for(k in 1:p){
+  T <- SWEEP(T,k)
+  lines(a, horner(T[1:k, p+1])(a), lty = k)
+  print(c(k, T[p + 1, p + 1]))
+}
+par(col = "red")
+lines(a, horner(beta_hat)(a),type = "s")
+
