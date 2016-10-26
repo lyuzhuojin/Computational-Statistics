@@ -1,0 +1,108 @@
+ldsvexp <- function(x, lambda){
+  sum(x*log(lambda) - lambda - log(factorial(x)))
+}
+
+log1pe = function (x) {
+  l = 0
+  if (x > 0) { l = x; x = -x } # range reduction
+  if (x < -37) l else l + log(1 + exp(x))
+}
+
+
+# em is list(lambda.d, lambda.c, pie)
+
+emc.update <- function (x, em) {
+    alpha = rep(NA, length(x))
+  # [ E-step ]
+  for (i in 1:length(x)) {
+    f1 = ldsvexp(x[i], em$lambda.d)
+    f2 = ldsvexp(x[i], em$lambda.c)
+    l = log(em$pie / (1 - em$pie))
+    alpha[i] = exp(-log1pe(-l + f2 - f1))
+  }
+  # [ M-step ]
+  pie = mean(alpha)
+  lambda.d = weighted.mean(x,alpha)
+  lambda.c = weighted.mean(x,1-alpha)
+  return(list(lambda.d=lambda.d, lambda.c = lambda.c, pie = pie))
+}
+
+
+x <- c(2,0,0,1,3,0,1,6,2,0,1,0,2,0,8,0,1,3,2,0)
+em <- list(lambda.d = sum(x[x>mean(x)])/length(x[x>mean(x)]), 
+           lambda.c = sum(x[x<mean(x)])/length(x[x<mean(x)]),
+                 pie = 0.5)
+
+repeat{
+  em_new <- emc.update(x,em)
+  diff <- c(abs(em$lambda.d - em_new$lambda.d),abs(em$lambda.c - em_new$lambda.c),abs(em$pie - em_new$pie))
+  if((length(diff[diff < 1e-8]) == 3)&(em_new$lambda.c < em_new$lambda.d)){break}
+  em <- list(lambda.d = em_new$lambda.d, lambda.c = em_new$lambda.c,pie = em_new$pie)
+}
+
+em_new
+
+table(x)#So I'll calculate the probability for each is considered as being dangeous given
+#the number of accidents happend in each per year, whose possible values includes 0,1,2,3,6,8
+
+y <- as.numeric(data.frame(table(x))$x)
+
+prob.y <- (6.12^y*exp(-6.12)*0.12)/(0.96^y*exp(-0.96)*(1-0.12)+6.12^y*exp(-6.12)*0.12)
+
+
+
+
+em_flip <- list(lambda.d = sum(x[x<mean(x)])/length(x[x<mean(x)]), 
+                      lambda.c = sum(x[x>mean(x)])/length(x[x>mean(x)]),
+                      pie = 0.5)
+
+repeat{
+  em_new <- emc.update(x,em_flip)
+  diff <- c(abs(em_flip$lambda.d - em_new$lambda.d),abs(em_flip$lambda.c - em_new$lambda.c),abs(em_flip$pie - em_new$pie))
+  if((length(diff[diff < 1e-8]) == 3)&(em_new$lambda.c != em_new$lambda.d)){break}
+  em_flip <- list(lambda.d = em_new$lambda.d, lambda.c = em_new$lambda.c,pie = em_new$pie)
+}
+em_new
+
+
+
+
+##2
+
+cdtexpet <- function(lambda, a, b){
+  if(a < 0|b < 0){print("a, b are both position integers")}
+  else if(a <= 2 & abs(b-a) > 1){print("Interval width must equal 1 if the upper limit smaller than 4")}
+  else if(b <= 3 & abs(b-a) == 1){
+    1/lambda + (a*exp(-lambda*a)-b*exp(-lambda*b))/(exp(-lambda*a)-exp(-lambda*b))
+  }
+  else{
+    1/lambda + 3
+  }
+}
+
+emc.update <- function (x, lambda) {
+  alpha = rep(NA, 4)
+  n = rep(NA, 4)#nj, for j = 0,1,2,3
+  # [ E-step ]
+  for(i in 1:4){
+    n[i] <- length(x[x == i -1])
+  }
+  y <- as.numeric(data.frame(table(x))$x)
+  for (i in 1:length(y)) {
+    alpha[i] <- switch(y[i], cdtexpet(lambda, 0, 1), cdtexpet(lambda, 1, 2), cdtexpet(lambda, 2, 3), cdtexpet(lambda, 3, 100))#b in the last cdtexpet can be any integer bigger than 4; Without loss generality, I choose 100.
+  }
+  # [ M-step ]
+  lambda = 1/weighted.mean(alpha,n)
+  return(list(lambda = lambda))
+}
+
+x <- c(rep(0,40),rep(1,29),rep(2,19),rep(3,12))
+
+lambda <- 0.67
+repeat{
+  em_new <- emc.update(x,lambda)
+  diff <- abs(lambda - em_new$lambda)
+  if(diff < 1e-8){break}
+  lambda = em_new$lambda
+}
+1/lambda#1.62 weeks
